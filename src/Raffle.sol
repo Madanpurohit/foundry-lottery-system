@@ -8,8 +8,8 @@ pragma solidity ^0.8.19;
 
 import {VRFCoordinatorV2Interface} from "@chainlink/contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import {VRFConsumerBaseV2} from "@chainlink/contracts/src/v0.8/VRFConsumerBaseV2.sol";
-
-contract Raffle is VRFConsumerBaseV2{
+import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/interfaces/AutomationCompatibleInterface.sol";
+contract Raffle is VRFConsumerBaseV2,AutomationCompatibleInterface{
     /**
      * Errors
      */
@@ -86,17 +86,17 @@ contract Raffle is VRFConsumerBaseV2{
      */
     function checkUpkeep(
         bytes memory /*checkData*/
-    ) public  view returns (bool, bytes memory) {
+    ) public  view override returns (bool, bytes memory) {
         bool hasBalance = address(this).balance > 0;
-        bool hasCorrectInterval = (s_lastTimeStamp - block.timestamp) > i_interval;
+        bool hasCorrectInterval = (block.timestamp-s_lastTimeStamp) > i_interval;
         bool hasEnoughPlayer = s_player.length > 0;
         bool isRaffleStateOpen = RaffleState.OPEN == s_raffleState;
         bool isUpKeepNeeded = (hasBalance && hasCorrectInterval && hasEnoughPlayer && isRaffleStateOpen);
-        return (isUpKeepNeeded,bytes(""));
+        return (isUpKeepNeeded,"0x0");
     }
 
-    function performUpkeep(bytes calldata /*performData*/) external {
-        (bool isUpKeepNeeded,) = checkUpkeep(bytes(""));
+    function performUpkeep(bytes calldata /*performData*/) public override {
+        (bool isUpKeepNeeded,) = checkUpkeep("");
         if(!isUpKeepNeeded){
             revert Raffle__upKeepNotNeeded(
                 address(this).balance,
@@ -130,5 +130,14 @@ contract Raffle is VRFConsumerBaseV2{
             revert Raffle__transferFailed();
         }
         emit PickedWineer(winner);
+    }
+
+    /**Getters */
+    function getRaffleState() external view returns(RaffleState){
+        return s_raffleState;
+    }
+
+    function getPlayer(uint256 index) external view returns(address){
+        return s_player[index];
     }
 }
